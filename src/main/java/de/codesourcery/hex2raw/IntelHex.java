@@ -30,7 +30,7 @@ import java.util.List;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
-public class Main 
+public class IntelHex 
 {
     protected static final String RECORD_START = ":";
     private static final byte[] EMPTY_ARRAY = new byte[0];
@@ -300,7 +300,7 @@ public class Main
             System.out.println("Reading: "+inFile.getAbsolutePath()+"\nWriting: "+outFile.getAbsolutePath());
         }
         
-        final Main converter = new Main();
+        final IntelHex converter = new IntelHex();
         converter.debugMode = debugEnabled;
         converter.verboseMode = verboseEnabled;
         

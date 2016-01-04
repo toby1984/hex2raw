@@ -58,7 +58,7 @@
           <finalName>hex2raw</finalName>
           <archive>
             <manifest>
-              <mainClass>de.codesourcery.hex2raw.Main</mainClass>
+              <mainClass>de.codesourcery.hex2raw.IntelHex</mainClass>
             </manifest>
           </archive>
           <descriptors>
