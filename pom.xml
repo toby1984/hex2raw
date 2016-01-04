@@ -3,7 +3,7 @@
   <groupId>de.codesourcery.hex2raw</groupId>
   <artifactId>hex2raw</artifactId>
   <packaging>jar</packaging>
-  <version>1.0.0-SNAPSHOT</version>
+  <version>1.0.0</version>
   <name>hex2raw</name>
   <description>Tiny tool to extract the raw bytes from Intel Hex files</description>
   <licenses>
