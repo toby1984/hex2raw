@@ -233,6 +233,7 @@ public class IntelHex
     {
         final List<String> ops = new ArrayList<>( Arrays.asList( arguments ) );
         
+        final boolean swapEndianess = ops.stream().anyMatch( s -> s.equals("--swap-endianess" ) );
         final boolean debugEnabled = ops.stream().anyMatch( s -> s.equals("-d" ) );
         final boolean verboseEnabled = ops.stream().anyMatch( s -> s.equals("-v" ) ) || debugEnabled;
         
@@ -267,12 +268,14 @@ public class IntelHex
         }
         
         ops.removeIf( s -> s.equals( "-d" ) );
+        ops.removeIf( s -> s.equals( "--swap-endianess" ) );
         ops.removeIf( s -> s.equals( "-v" ) );
         
         if ( ops.size() < 1 || ops.size() > 2 ) {
-            throw new RuntimeException("Invalid command line: "+ops+".\n\nUsage: [-d] [-r <address>] [-v] <input file> [output file]\n\n"
+            throw new RuntimeException("Invalid command line: "+ops+".\n\nUsage: [-d] [--swap-endianess] [-r <address>] [-v] <input file> [output file]\n\n"
                     + "-d => enable debug output\n"
                     + "-v => enable verbose output\n"
+                    + "--swap-endianess => treats input as 16-bit values , swapping upper and lower byte\n"
                     + "-r <starting address> => Convert raw-to-hex (instead of hex-to-raw which is the default)\n");
         }
         
@@ -309,16 +312,16 @@ public class IntelHex
             if ( rawToHex ) 
             {
                 if ( verboseEnabled ) {
-                    System.out.println("Converting RAW -> HEX");
+                    System.out.println("Converting RAW -> HEX"+(swapEndianess ? " while swapping endianess of input" : ""));
                 }
-                converter.rawToHex( in , out , startingAddress );
+                converter.rawToHex( swapEndianess ? new SwappingInputStream(in) : in , out , startingAddress );
             } 
             else 
             {
                 if ( verboseEnabled ) {
-                    System.out.println("Converting HEX -> RAW");
+                    System.out.println("Converting HEX -> RAW"+(swapEndianess ? " while swapping endianess of output" : ""));
                 }                
-                converter.hexToRaw( in , out );
+                converter.hexToRaw( in , swapEndianess ? new SwappingOutputStream(out) : out );
             }
         }
     }
@@ -381,6 +384,104 @@ public class IntelHex
             }
             final Line parsed = Line.parse( line , lineNo++ );
             visitor.visit( parsed );
+        }
+    }
+    
+    public static final class SwappingOutputStream extends OutputStream {
+        
+        private final OutputStream delegate;
+        private final byte[] buffer = new byte[2];
+        
+        private int ptr = 0;
+        
+        public SwappingOutputStream(OutputStream delegate) 
+        {
+            if ( delegate == null ) {
+                throw new IllegalArgumentException("delegate must not be null");
+            }
+            this.delegate = delegate;
+        }
+        
+        @Override
+        public void close() throws IOException 
+        {
+            writeOutBuffer();
+            delegate.close();
+        }
+        
+        private void writeOutBuffer() throws IOException 
+        {
+            switch( ptr ) {
+                case 0: break;
+                case 1: delegate.write( buffer[0] ); ptr = 0; break;
+                case 2:
+                    final byte tmp = buffer[0];
+                    buffer[0]=buffer[1];
+                    buffer[1]=tmp;    
+                    delegate.write( buffer );
+                    ptr = 0;
+                    break;
+                default:
+                    throw new RuntimeException("Unreachable code reached");
+            }
+        }
+        
+        @Override
+        public void write(int b) throws IOException 
+        {
+            if ( ptr == 2 ) 
+            {
+                writeOutBuffer();
+            }
+            buffer[ ptr++ ] = (byte) b;
+        }
+    }    
+    
+    public static final class SwappingInputStream extends InputStream {
+        
+        private final InputStream delegate;
+        private byte[] buffer = new byte[1024]; // size must always be an even number because we want to swap every 2 bytes
+        
+        private int bytesInBuffer = 0;
+        private int ptr = 0;
+        
+        public SwappingInputStream(InputStream delegate) 
+        {
+            if ( delegate == null ) {
+                throw new IllegalArgumentException("delegate must not be null");
+            }
+            this.delegate = delegate;
+        }
+        
+        @Override
+        public void close() throws IOException 
+        {
+            delegate.close();
+        }
+        
+        private int advance() throws IOException 
+        {
+            if ( ptr >= bytesInBuffer ) 
+            {
+                bytesInBuffer = delegate.read( buffer );
+                for ( int i = 0 , end = bytesInBuffer-2 ; i <= end ; i+=2) 
+                {
+                    final byte tmp = buffer[i];
+                    buffer[i]=buffer[i+1];
+                    buffer[i+1]=tmp;
+                }
+                ptr = 0;
+            }
+            return bytesInBuffer;
+        }
+        
+        @Override
+        public int read() throws IOException 
+        {
+            if ( advance() <= 0 ) {
+                return -1;
+            }
+            return buffer[ ptr++ ] & 0xff;
         }
     }
 
