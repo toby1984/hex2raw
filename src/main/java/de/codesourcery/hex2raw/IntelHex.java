@@ -307,22 +307,37 @@ public class IntelHex
         converter.debugMode = debugEnabled;
         converter.verboseMode = verboseEnabled;
         
-        try ( InputStream in = new FileInputStream(inFile) ; OutputStream out = new FileOutputStream(outFile) ) 
+        InputStream in = new FileInputStream(inFile);
+        try 
         {
-            if ( rawToHex ) 
+            OutputStream out = new FileOutputStream(outFile);
+            try 
             {
-                if ( verboseEnabled ) {
-                    System.out.println("Converting RAW -> HEX"+(swapEndianess ? " while swapping endianess of input" : ""));
+                if ( rawToHex ) 
+                {
+                    if ( verboseEnabled ) {
+                        System.out.println("Converting RAW -> HEX"+(swapEndianess ? " while swapping endianess of input" : ""));
+                    }
+                    if ( swapEndianess ) {
+                        in = new SwappingInputStream(in); 
+                    }
+                    converter.rawToHex( in , out , startingAddress );
+                } 
+                else 
+                {
+                    if ( verboseEnabled ) {
+                        System.out.println("Converting HEX -> RAW"+(swapEndianess ? " while swapping endianess of output" : ""));
+                    }               
+                    if ( swapEndianess ) {
+                        out = new SwappingOutputStream(out);
+                    }                
+                    converter.hexToRaw( in , out );
                 }
-                converter.rawToHex( swapEndianess ? new SwappingInputStream(in) : in , out , startingAddress );
-            } 
-            else 
-            {
-                if ( verboseEnabled ) {
-                    System.out.println("Converting HEX -> RAW"+(swapEndianess ? " while swapping endianess of output" : ""));
-                }                
-                converter.hexToRaw( in , swapEndianess ? new SwappingOutputStream(out) : out );
+            } finally {
+                out.close();
             }
+        } finally {
+            in.close();
         }
     }
     
@@ -350,6 +365,7 @@ public class IntelHex
         line.writeTo( out );
         
         int ptr = 0;
+        int dataBytesOut = 0;
         while ( ptr < len ) 
         {
             line.loadOffset = ptr;
@@ -358,7 +374,16 @@ public class IntelHex
             line.type = RecordType.DATA;
             line.writeTo( out );
             
+            dataBytesOut += line.len;
             ptr += bytesPerLine;
+        }
+        
+        if ( verboseMode ) {
+            System.out.println("Processed "+dataBytesOut+" bytes.");
+        }
+        
+        if ( dataBytesOut != len ) {
+            throw new RuntimeException("Internal error, input <-> output byte count mismatch");
         }
         
         line.loadOffset = 0;
