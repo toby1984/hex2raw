@@ -16,6 +16,7 @@
 package de.codesourcery.hex2raw;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -341,7 +342,7 @@ public class IntelHex
         }
     }
     
-    private void rawToHex(InputStream in, OutputStream out,int startingAddress) throws IOException 
+    public int rawToHex(InputStream in, OutputStream out,int startingAddress) throws IOException 
     {
         final ByteArrayOutputStream buffer = new ByteArrayOutputStream();
         final byte[] tmp = new byte[1024];
@@ -352,8 +353,9 @@ public class IntelHex
         }
         final byte[] data = buffer.toByteArray();
         rawToHex(  data , data.length , out , startingAddress );
+        return data.length;
     }
-
+    
     public void rawToHex(byte[] data,int len, OutputStream out,int address) throws IOException 
     {
         final int bytesPerLine = 16;
